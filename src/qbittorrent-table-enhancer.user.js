@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         qBittorrent Table Enhancer
 // @namespace    https://github.com/leeguooooo/qbittorrent-table-enhancer
-// @version      1.1.0
+// @version      1.2.0
 // @description  Enhance qBittorrent web interface by showing hidden table columns
 // @author       leeguooooo
 // @match        http*://*/
@@ -45,6 +45,17 @@
 
     let controlPanel = null;
     let isInitialized = false;
+    let activeFilters = [];
+    
+    // Filter types for different columns
+    const FILTER_TYPES = {
+        'save_path': { name: '保存路径', columnClass: 'column_save_path', dataIndex: 27 },
+        'name': { name: '名称', columnClass: 'column_name', dataIndex: 2 },
+        'category': { name: '分类', columnClass: 'column_category', dataIndex: 14 },
+        'tags': { name: '标签', columnClass: 'column_tags', dataIndex: 15 },
+        'status': { name: '状态', columnClass: 'column_status', dataIndex: 6 },
+        'tracker': { name: 'Tracker', columnClass: 'column_tracker', dataIndex: 18 }
+    };
 
     // Check if we're on a qBittorrent web interface
     function isQBittorrentInterface() {
@@ -59,6 +70,90 @@
         const headers = document.querySelectorAll('#transferList .dynamicTableHeader th');
         const rows = document.querySelectorAll('#transferList tbody tr');
         return { headers, rows };
+    }
+
+    // Apply filters to hide rows
+    function applyFilters() {
+        const dataRows = document.querySelectorAll('#torrentsTableDiv tbody tr');
+        let hiddenCount = 0;
+        
+        dataRows.forEach(row => {
+            let shouldHide = false;
+            
+            // Check each active filter
+            activeFilters.forEach(filter => {
+                const cellIndex = FILTER_TYPES[filter.type]?.dataIndex;
+                if (cellIndex !== undefined && row.children[cellIndex]) {
+                    const cellText = row.children[cellIndex].textContent.trim();
+                    const cellTitle = row.children[cellIndex].getAttribute('title') || '';
+                    
+                    // Check if filter matches (case insensitive)
+                    const textToCheck = (cellText + ' ' + cellTitle).toLowerCase();
+                    const filterValue = filter.value.toLowerCase();
+                    
+                    if (filter.mode === 'exclude' && textToCheck.includes(filterValue)) {
+                        shouldHide = true;
+                    } else if (filter.mode === 'include' && !textToCheck.includes(filterValue)) {
+                        shouldHide = true;
+                    }
+                }
+            });
+            
+            // Apply visibility
+            if (shouldHide) {
+                row.style.display = 'none';
+                row.classList.add('qbt-filtered');
+                hiddenCount++;
+            } else {
+                row.style.display = '';
+                row.classList.remove('qbt-filtered');
+            }
+        });
+        
+        console.log(`[qBittorrent Enhancer] Applied ${activeFilters.length} filters, hidden ${hiddenCount} rows`);
+        updateFilterStatus();
+    }
+
+    // Update filter status display
+    function updateFilterStatus() {
+        const statusElement = document.getElementById('qbt-filter-status');
+        if (statusElement) {
+            const hiddenRows = document.querySelectorAll('#torrentsTableDiv tbody tr.qbt-filtered').length;
+            const totalRows = document.querySelectorAll('#torrentsTableDiv tbody tr').length;
+            statusElement.textContent = activeFilters.length > 0 ? 
+                `过滤器: ${activeFilters.length}个活跃, 隐藏 ${hiddenRows}/${totalRows} 行` : 
+                '无活跃过滤器';
+        }
+    }
+
+    // Add a new filter
+    function addFilter(type, value, mode = 'exclude') {
+        if (!value.trim()) return;
+        
+        // Check if filter already exists
+        const exists = activeFilters.some(f => f.type === type && f.value === value && f.mode === mode);
+        if (exists) return;
+        
+        activeFilters.push({ type, value, mode, id: Date.now() });
+        applyFilters();
+        refreshFilterList();
+    }
+
+    // Remove a filter
+    function removeFilter(filterId) {
+        activeFilters = activeFilters.filter(f => f.id !== filterId);
+        applyFilters();
+        refreshFilterList();
+    }
+    
+    // Expose removeFilter to global scope for onclick handlers
+    window.removeFilter = removeFilter;
+
+    // Clear all filters
+    function clearAllFilters() {
+        activeFilters = [];
+        applyFilters();
+        refreshFilterList();
     }
 
     // Toggle column visibility
@@ -181,7 +276,9 @@
                     max-height: 400px;
                     overflow-y: auto;
                 ">
-                    <div style="margin-bottom: 10px;">
+                    <!-- Column Controls -->
+                    <div style="margin-bottom: 15px; border-bottom: 1px solid #555; padding-bottom: 10px;">
+                        <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 14px;">列显示控制</h4>
                         <button id="qbt-show-all" style="
                             background: #4caf50;
                             border: none;
@@ -202,7 +299,79 @@
                             font-size: 11px;
                         ">隐藏所有</button>
                     </div>
-                    <div id="qbt-column-list"></div>
+                    <div id="qbt-column-list" style="margin-bottom: 15px;"></div>
+                    
+                    <!-- Filter Controls -->
+                    <div style="border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 10px;">
+                        <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 14px;">数据过滤器</h4>
+                        <div style="margin-bottom: 8px;">
+                            <select id="qbt-filter-type" style="
+                                background: #333;
+                                border: 1px solid #555;
+                                color: #fff;
+                                padding: 3px;
+                                border-radius: 3px;
+                                font-size: 11px;
+                                margin-right: 5px;
+                                width: 80px;
+                            ">
+                                <option value="save_path">保存路径</option>
+                                <option value="name">名称</option>
+                                <option value="category">分类</option>
+                                <option value="tags">标签</option>
+                                <option value="status">状态</option>
+                                <option value="tracker">Tracker</option>
+                            </select>
+                            <select id="qbt-filter-mode" style="
+                                background: #333;
+                                border: 1px solid #555;
+                                color: #fff;
+                                padding: 3px;
+                                border-radius: 3px;
+                                font-size: 11px;
+                                margin-right: 5px;
+                                width: 60px;
+                            ">
+                                <option value="exclude">排除</option>
+                                <option value="include">仅显示</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <input type="text" id="qbt-filter-value" placeholder="输入过滤值..." style="
+                                background: #333;
+                                border: 1px solid #555;
+                                color: #fff;
+                                padding: 3px 6px;
+                                border-radius: 3px;
+                                font-size: 11px;
+                                width: 140px;
+                                margin-right: 5px;
+                            ">
+                            <button id="qbt-add-filter" style="
+                                background: #2196f3;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 11px;
+                            ">添加</button>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <button id="qbt-clear-filters" style="
+                                background: #ff9800;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 11px;
+                                margin-right: 5px;
+                            ">清除所有</button>
+                            <span id="qbt-filter-status" style="color: #aaa; font-size: 10px;">无活跃过滤器</span>
+                        </div>
+                    </div>
+                    <div id="qbt-filter-list" style="margin-bottom: 10px;"></div>
                 </div>
             </div>
         `;
@@ -212,6 +381,7 @@
         // Add event listeners
         setupControlPanelEvents();
         generateColumnList();
+        refreshFilterList();
         makePanelDraggable();
     }
 
@@ -253,6 +423,78 @@
                 if (checkbox) checkbox.checked = false;
             });
         });
+
+        // Filter controls
+        document.getElementById('qbt-add-filter').addEventListener('click', () => {
+            const type = document.getElementById('qbt-filter-type').value;
+            const mode = document.getElementById('qbt-filter-mode').value;
+            const value = document.getElementById('qbt-filter-value').value;
+            
+            if (value.trim()) {
+                addFilter(type, value.trim(), mode);
+                document.getElementById('qbt-filter-value').value = '';
+            }
+        });
+
+        // Enter key to add filter
+        document.getElementById('qbt-filter-value').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('qbt-add-filter').click();
+            }
+        });
+
+        // Clear all filters
+        document.getElementById('qbt-clear-filters').addEventListener('click', () => {
+            clearAllFilters();
+        });
+    }
+
+    // Refresh filter list display
+    function refreshFilterList() {
+        const filterList = document.getElementById('qbt-filter-list');
+        if (!filterList) return;
+        
+        filterList.innerHTML = '';
+        
+        activeFilters.forEach(filter => {
+            const filterType = FILTER_TYPES[filter.type];
+            const item = document.createElement('div');
+            item.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 5px;
+                padding: 4px 6px;
+                background: #444;
+                border-radius: 3px;
+                font-size: 10px;
+            `;
+            
+            const modeText = filter.mode === 'exclude' ? '排除' : '仅显示';
+            const modeColor = filter.mode === 'exclude' ? '#f44336' : '#4caf50';
+            
+            item.innerHTML = `
+                <div style="flex: 1; overflow: hidden;">
+                    <span style="color: ${modeColor}; font-weight: bold;">[${modeText}]</span>
+                    <span style="color: #aaa;">${filterType.name}:</span>
+                    <span style="color: #fff;">${filter.value}</span>
+                </div>
+                <button onclick="removeFilter(${filter.id})" style="
+                    background: #d32f2f;
+                    border: none;
+                    color: #fff;
+                    padding: 2px 5px;
+                    border-radius: 2px;
+                    cursor: pointer;
+                    font-size: 10px;
+                    margin-left: 5px;
+                ">×</button>
+            `;
+            
+            filterList.appendChild(item);
+        });
+        
+        updateFilterStatus();
     }
 
     // Generate column list in control panel
@@ -486,6 +728,10 @@
         mutations.forEach(mutation => {
             if (mutation.addedNodes.length > 0) {
                 enhanceTable();
+                // Reapply filters when table content changes
+                if (activeFilters.length > 0) {
+                    setTimeout(applyFilters, 100);
+                }
             }
         });
     });
