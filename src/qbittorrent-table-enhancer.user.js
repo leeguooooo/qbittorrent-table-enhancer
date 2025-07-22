@@ -85,6 +85,39 @@
             });
         });
         
+        // Additionally handle data rows by column index
+        // Get column index from header
+        const headerRow = document.querySelector('#torrentsTableDiv thead tr') || 
+                         document.querySelector('#torrentsTableFixedHeaderDiv thead tr');
+        if (headerRow) {
+            const headers = headerRow.querySelectorAll('th');
+            let columnIndex = -1;
+            
+            headers.forEach((header, index) => {
+                if (header.classList.contains(columnClass)) {
+                    columnIndex = index;
+                }
+            });
+            
+            if (columnIndex >= 0) {
+                // Toggle corresponding td elements by index
+                const dataRows = document.querySelectorAll('#torrentsTableDiv tbody tr');
+                dataRows.forEach(row => {
+                    const cell = row.children[columnIndex];
+                    if (cell) {
+                        if (show) {
+                            cell.classList.remove('invisible');
+                            cell.style.display = '';
+                        } else {
+                            cell.classList.add('invisible');
+                            cell.style.display = 'none';
+                        }
+                        totalElements++;
+                    }
+                });
+            }
+        }
+        
         // Debug logging
         console.log(`[qBittorrent Enhancer] Toggled ${totalElements} elements for column ${columnClass} to ${show ? 'visible' : 'hidden'}`);
     }
@@ -321,7 +354,15 @@
             console.log(`Data rows: ${dataRows.length}`);
             if (dataRows.length > 0) {
                 const dataCells = dataRows[0].querySelectorAll('td[class*="column_"]');
+                const allCells = dataRows[0].querySelectorAll('td');
                 console.log(`Data cells in first row: ${dataCells.length}`);
+                console.log(`Total cells in first row: ${allCells.length}`);
+                
+                // Log first few cells to understand structure
+                for (let i = 0; i < Math.min(5, allCells.length); i++) {
+                    const cell = allCells[i];
+                    console.log(`Cell ${i}: class="${cell.className}", visible=${!cell.classList.contains('invisible')}`);
+                }
             }
         }
         
@@ -329,6 +370,30 @@
         Object.keys(COLUMN_DEFINITIONS).slice(0, 3).forEach(columnClass => {
             const elements = document.querySelectorAll(`#transferList .${columnClass}`);
             console.log(`Column ${columnClass}: ${elements.length} elements found`);
+            
+            // Check column index
+            const headerRow = contentTable?.querySelector('thead tr');
+            if (headerRow) {
+                const headers = headerRow.querySelectorAll('th');
+                let columnIndex = -1;
+                headers.forEach((header, index) => {
+                    if (header.classList.contains(columnClass)) {
+                        columnIndex = index;
+                    }
+                });
+                console.log(`  Column index: ${columnIndex}`);
+                
+                if (columnIndex >= 0) {
+                    const dataRows = contentTable.querySelectorAll('tbody tr');
+                    let cellsFound = 0;
+                    dataRows.forEach(row => {
+                        if (row.children[columnIndex]) {
+                            cellsFound++;
+                        }
+                    });
+                    console.log(`  Data cells by index: ${cellsFound}`);
+                }
+            }
         });
     }
 
