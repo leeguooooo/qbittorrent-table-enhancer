@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         qBittorrent Table Enhancer
 // @namespace    https://github.com/leeguooooo/qbittorrent-table-enhancer
-// @version      1.2.0
+// @version      1.3.0
 // @description  Enhance qBittorrent web interface by showing hidden table columns
 // @author       leeguooooo
 // @match        http*://*/
@@ -17,8 +17,8 @@
 (function() {
     'use strict';
 
-    // Column definitions with their display names
-    const COLUMN_DEFINITIONS = {
+    // Hidden column definitions 
+    const HIDDEN_COLUMN_DEFINITIONS = {
         'column_priority': { name: '#', description: '优先级' },
         'column_total_size': { name: '总大小', description: '种子文件的总大小' },
         'column_completion_on': { name: '完成于', description: '种子完成时间' },
@@ -41,6 +41,26 @@
         'column_infohash_v1': { name: '信息哈希值 v1', description: 'BitTorrent v1 哈希值' },
         'column_infohash_v2': { name: '信息哈希值 v2', description: 'BitTorrent v2 哈希值' },
         'column_reannounce': { name: '下次重新汇报', description: '下次向Tracker汇报的时间' }
+    };
+
+    // Visible column definitions (currently displayed columns)
+    const VISIBLE_COLUMN_DEFINITIONS = {
+        'column_state_icon': { name: '状态图标', description: '种子状态图标' },
+        'column_name': { name: '名称', description: '种子名称' },
+        'column_size': { name: '选定大小', description: '选择下载的文件大小' },
+        'column_progress': { name: '进度', description: '下载进度' },
+        'column_status': { name: '状态', description: '当前状态' },
+        'column_num_seeds': { name: '种子', description: '种子数量' },
+        'column_num_leechs': { name: '用户', description: '下载用户数量' },
+        'column_dlspeed': { name: '下载速度', description: '当前下载速度' },
+        'column_upspeed': { name: '上传速度', description: '当前上传速度' },
+        'column_eta': { name: '剩余时间', description: '预计完成时间' },
+        'column_ratio': { name: '比率', description: '分享比率' },
+        'column_popularity': { name: '流行度', description: '种子流行度' },
+        'column_category': { name: '分类', description: '种子分类' },
+        'column_tags': { name: '标签', description: '种子标签' },
+        'column_added_on': { name: '添加于', description: '添加时间' },
+        'column_private': { name: '私密', description: '是否为私有种子' }
     };
 
     let controlPanel = null;
@@ -279,27 +299,58 @@
                     <!-- Column Controls -->
                     <div style="margin-bottom: 15px; border-bottom: 1px solid #555; padding-bottom: 10px;">
                         <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 14px;">列显示控制</h4>
-                        <button id="qbt-show-all" style="
-                            background: #4caf50;
-                            border: none;
-                            color: #fff;
-                            padding: 5px 10px;
-                            margin-right: 5px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 11px;
-                        ">显示所有</button>
-                        <button id="qbt-hide-all" style="
-                            background: #f44336;
-                            border: none;
-                            color: #fff;
-                            padding: 5px 10px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 11px;
-                        ">隐藏所有</button>
+                        
+                        <!-- Hidden Columns Section -->
+                        <div style="margin-bottom: 10px;">
+                            <h5 style="margin: 0 0 5px 0; color: #ccc; font-size: 12px;">隐藏列（显示更多信息）</h5>
+                            <button id="qbt-show-all" style="
+                                background: #4caf50;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                margin-right: 5px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 10px;
+                            ">显示所有</button>
+                            <button id="qbt-hide-all" style="
+                                background: #f44336;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 10px;
+                            ">隐藏所有</button>
+                        </div>
+
+                        <!-- Visible Columns Section -->
+                        <div style="margin-bottom: 10px;">
+                            <h5 style="margin: 0 0 5px 0; color: #ccc; font-size: 12px;">显示列（隐藏不需要的）</h5>
+                            <button id="qbt-show-all-visible" style="
+                                background: #4caf50;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                margin-right: 5px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 10px;
+                            ">显示所有</button>
+                            <button id="qbt-hide-all-visible" style="
+                                background: #f44336;
+                                border: none;
+                                color: #fff;
+                                padding: 4px 8px;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 10px;
+                            ">隐藏所有</button>
+                        </div>
                     </div>
-                    <div id="qbt-column-list" style="margin-bottom: 15px;"></div>
+                    
+                    <div id="qbt-hidden-column-list" style="margin-bottom: 10px;"></div>
+                    <div id="qbt-visible-column-list" style="margin-bottom: 15px;"></div>
                     
                     <!-- Filter Controls -->
                     <div style="border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 10px;">
@@ -406,20 +457,38 @@
             }
         });
 
-        // Show all columns
+        // Show all hidden columns
         document.getElementById('qbt-show-all').addEventListener('click', () => {
-            Object.keys(COLUMN_DEFINITIONS).forEach(columnClass => {
+            Object.keys(HIDDEN_COLUMN_DEFINITIONS).forEach(columnClass => {
                 toggleColumn(columnClass, true);
-                const checkbox = document.querySelector(`#qbt-${columnClass}`);
+                const checkbox = document.querySelector(`#qbt-hidden-${columnClass}`);
                 if (checkbox) checkbox.checked = true;
             });
         });
 
-        // Hide all columns
+        // Hide all hidden columns
         document.getElementById('qbt-hide-all').addEventListener('click', () => {
-            Object.keys(COLUMN_DEFINITIONS).forEach(columnClass => {
+            Object.keys(HIDDEN_COLUMN_DEFINITIONS).forEach(columnClass => {
                 toggleColumn(columnClass, false);
-                const checkbox = document.querySelector(`#qbt-${columnClass}`);
+                const checkbox = document.querySelector(`#qbt-hidden-${columnClass}`);
+                if (checkbox) checkbox.checked = false;
+            });
+        });
+
+        // Show all visible columns
+        document.getElementById('qbt-show-all-visible').addEventListener('click', () => {
+            Object.keys(VISIBLE_COLUMN_DEFINITIONS).forEach(columnClass => {
+                toggleColumn(columnClass, true);
+                const checkbox = document.querySelector(`#qbt-visible-${columnClass}`);
+                if (checkbox) checkbox.checked = true;
+            });
+        });
+
+        // Hide all visible columns  
+        document.getElementById('qbt-hide-all-visible').addEventListener('click', () => {
+            Object.keys(VISIBLE_COLUMN_DEFINITIONS).forEach(columnClass => {
+                toggleColumn(columnClass, false);
+                const checkbox = document.querySelector(`#qbt-visible-${columnClass}`);
                 if (checkbox) checkbox.checked = false;
             });
         });
@@ -497,12 +566,20 @@
         updateFilterStatus();
     }
 
-    // Generate column list in control panel
+    // Generate column lists in control panel
     function generateColumnList() {
-        const columnList = document.getElementById('qbt-column-list');
-        columnList.innerHTML = '';
+        generateHiddenColumnList();
+        generateVisibleColumnList();
+    }
 
-        Object.entries(COLUMN_DEFINITIONS).forEach(([columnClass, info]) => {
+    // Generate hidden column list
+    function generateHiddenColumnList() {
+        const columnList = document.getElementById('qbt-hidden-column-list');
+        if (!columnList) return;
+        
+        columnList.innerHTML = '<h5 style="margin: 0 0 8px 0; color: #ccc; font-size: 11px;">隐藏列管理</h5>';
+
+        Object.entries(HIDDEN_COLUMN_DEFINITIONS).forEach(([columnClass, info]) => {
             // Check visibility in both header and content tables
             const headerElement = document.querySelector(`#torrentsTableFixedHeaderDiv .${columnClass}`) || 
                                  document.querySelector(`#torrentsTableDiv .${columnClass}`) ||
@@ -513,22 +590,69 @@
             item.style.cssText = `
                 display: flex;
                 align-items: center;
-                margin-bottom: 8px;
-                padding: 5px;
+                margin-bottom: 6px;
+                padding: 4px;
                 background: #333;
-                border-radius: 4px;
+                border-radius: 3px;
             `;
 
             item.innerHTML = `
-                <input type="checkbox" id="qbt-${columnClass}" ${isVisible ? 'checked' : ''} style="margin-right: 8px;">
-                <label for="qbt-${columnClass}" style="
+                <input type="checkbox" id="qbt-hidden-${columnClass}" ${isVisible ? 'checked' : ''} style="margin-right: 6px;">
+                <label for="qbt-hidden-${columnClass}" style="
                     flex: 1;
                     cursor: pointer;
                     display: flex;
                     flex-direction: column;
                 ">
-                    <span style="font-weight: bold;">${info.name}</span>
-                    <span style="font-size: 10px; color: #aaa;">${info.description}</span>
+                    <span style="font-weight: bold; font-size: 11px;">${info.name}</span>
+                    <span style="font-size: 9px; color: #aaa;">${info.description}</span>
+                </label>
+            `;
+
+            columnList.appendChild(item);
+
+            // Add change event listener
+            const checkbox = item.querySelector('input');
+            checkbox.addEventListener('change', (e) => {
+                toggleColumn(columnClass, e.target.checked);
+            });
+        });
+    }
+
+    // Generate visible column list  
+    function generateVisibleColumnList() {
+        const columnList = document.getElementById('qbt-visible-column-list');
+        if (!columnList) return;
+        
+        columnList.innerHTML = '<h5 style="margin: 0 0 8px 0; color: #ccc; font-size: 11px;">显示列管理</h5>';
+
+        Object.entries(VISIBLE_COLUMN_DEFINITIONS).forEach(([columnClass, info]) => {
+            // Check visibility - for visible columns, default is visible unless explicitly hidden
+            const headerElement = document.querySelector(`#torrentsTableFixedHeaderDiv .${columnClass}`) || 
+                                 document.querySelector(`#torrentsTableDiv .${columnClass}`) ||
+                                 document.querySelector(`#transferList .${columnClass}`);
+            const isVisible = !headerElement || !headerElement.classList.contains('invisible');
+            
+            const item = document.createElement('div');
+            item.style.cssText = `
+                display: flex;
+                align-items: center;
+                margin-bottom: 6px;
+                padding: 4px;
+                background: #333;
+                border-radius: 3px;
+            `;
+
+            item.innerHTML = `
+                <input type="checkbox" id="qbt-visible-${columnClass}" ${isVisible ? 'checked' : ''} style="margin-right: 6px;">
+                <label for="qbt-visible-${columnClass}" style="
+                    flex: 1;
+                    cursor: pointer;
+                    display: flex;
+                    flex-direction: column;
+                ">
+                    <span style="font-weight: bold; font-size: 11px;">${info.name}</span>
+                    <span style="font-size: 9px; color: #aaa;">${info.description}</span>
                 </label>
             `;
 
@@ -609,7 +733,7 @@
         }
         
         // Check some specific columns
-        Object.keys(COLUMN_DEFINITIONS).slice(0, 3).forEach(columnClass => {
+        Object.keys(HIDDEN_COLUMN_DEFINITIONS).slice(0, 3).forEach(columnClass => {
             const elements = document.querySelectorAll(`#transferList .${columnClass}`);
             console.log(`Column ${columnClass}: ${elements.length} elements found`);
             
