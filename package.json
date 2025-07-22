@@ -1,0 +1,27 @@
+{
+  "name": "qbittorrent-table-enhancer",
+  "version": "1.0.0",
+  "description": "Userscript to enhance qBittorrent web interface table display",
+  "main": "src/qbittorrent-table-enhancer.user.js",
+  "scripts": {
+    "dev": "echo 'Install the userscript in your browser for development'",
+    "build": "echo 'No build process needed for userscripts'"
+  },
+  "keywords": [
+    "userscript",
+    "qbittorrent",
+    "table-enhancement",
+    "tampermonkey",
+    "greasemonkey"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/qbittorrent-table-enhancer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/qbittorrent-table-enhancer/issues"
+  },
+  "homepage": "https://github.com/your-username/qbittorrent-table-enhancer#readme"
+}
