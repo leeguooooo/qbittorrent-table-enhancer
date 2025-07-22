@@ -63,16 +63,30 @@
 
     // Toggle column visibility
     function toggleColumn(columnClass, show) {
-        const elements = document.querySelectorAll(`#transferList .${columnClass}`);
-        elements.forEach(element => {
-            if (show) {
-                element.classList.remove('invisible');
-                element.style.display = '';
-            } else {
-                element.classList.add('invisible');
-                element.style.display = 'none';
-            }
+        // Select elements from both fixed header and scrollable content
+        const selectors = [
+            `#torrentsTableFixedHeaderDiv .${columnClass}`,
+            `#torrentsTableDiv .${columnClass}`,
+            `#transferList .${columnClass}` // fallback for general case
+        ];
+        
+        let totalElements = 0;
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            totalElements += elements.length;
+            elements.forEach(element => {
+                if (show) {
+                    element.classList.remove('invisible');
+                    element.style.display = '';
+                } else {
+                    element.classList.add('invisible');
+                    element.style.display = 'none';
+                }
+            });
         });
+        
+        // Debug logging
+        console.log(`[qBittorrent Enhancer] Toggled ${totalElements} elements for column ${columnClass} to ${show ? 'visible' : 'hidden'}`);
     }
 
     // Create control panel
@@ -214,7 +228,11 @@
         columnList.innerHTML = '';
 
         Object.entries(COLUMN_DEFINITIONS).forEach(([columnClass, info]) => {
-            const isVisible = !document.querySelector(`#transferList .${columnClass}`)?.classList.contains('invisible');
+            // Check visibility in both header and content tables
+            const headerElement = document.querySelector(`#torrentsTableFixedHeaderDiv .${columnClass}`) || 
+                                 document.querySelector(`#torrentsTableDiv .${columnClass}`) ||
+                                 document.querySelector(`#transferList .${columnClass}`);
+            const isVisible = headerElement && !headerElement.classList.contains('invisible');
             
             const item = document.createElement('div');
             item.style.cssText = `
@@ -279,6 +297,41 @@
         });
     }
 
+    // Debug function to analyze table structure
+    function debugTableStructure() {
+        console.log('[qBittorrent Enhancer] Table Structure Analysis:');
+        
+        const fixedHeader = document.querySelector('#torrentsTableFixedHeaderDiv');
+        const contentTable = document.querySelector('#torrentsTableDiv');
+        const transferList = document.querySelector('#transferList');
+        
+        console.log('Fixed Header Table:', fixedHeader ? 'Found' : 'Not Found');
+        console.log('Content Table:', contentTable ? 'Found' : 'Not Found');
+        console.log('Transfer List:', transferList ? 'Found' : 'Not Found');
+        
+        if (fixedHeader) {
+            const headerColumns = fixedHeader.querySelectorAll('th[class*="column_"]');
+            console.log(`Fixed header columns: ${headerColumns.length}`);
+        }
+        
+        if (contentTable) {
+            const contentColumns = contentTable.querySelectorAll('th[class*="column_"]');
+            const dataRows = contentTable.querySelectorAll('tbody tr');
+            console.log(`Content header columns: ${contentColumns.length}`);
+            console.log(`Data rows: ${dataRows.length}`);
+            if (dataRows.length > 0) {
+                const dataCells = dataRows[0].querySelectorAll('td[class*="column_"]');
+                console.log(`Data cells in first row: ${dataCells.length}`);
+            }
+        }
+        
+        // Check some specific columns
+        Object.keys(COLUMN_DEFINITIONS).slice(0, 3).forEach(columnClass => {
+            const elements = document.querySelectorAll(`#transferList .${columnClass}`);
+            console.log(`Column ${columnClass}: ${elements.length} elements found`);
+        });
+    }
+
     // Add hotkey to toggle panel
     function setupHotkeys() {
         document.addEventListener('keydown', (e) => {
@@ -291,6 +344,12 @@
                 } else {
                     createControlPanel();
                 }
+            }
+            
+            // Ctrl+Shift+D for debug
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                debugTableStructure();
             }
         });
     }
@@ -339,7 +398,7 @@
                 font-size: 14px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             ">
-                qBittorrent表格增强器已启用！按 Ctrl+Shift+Q 打开控制面板
+                qBittorrent表格增强器已启用！按 Ctrl+Shift+Q 打开控制面板，Ctrl+Shift+D 调试信息
             </div>
         `;
         
